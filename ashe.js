@@ -1,7 +1,7 @@
 /**
  * Ashe.js is a smart, fast, eval-less javascript templating library.
  */
-(function() {
+define(function (require, exports, module) {
 	
 	"use strict";
 	
@@ -12,20 +12,20 @@
 	 * @param {String} str Template string.
 	 * @param {Object} data Data for template.
 	 */
-    process = function(str, data) {
+	process = function(str, data) {
 		return str.replace(/\{_(\d+?)\}/g, function(a, b) {
 			var token = tokens[b], repl, i;
 			if (!token.expr) {
 				repl = evl(data, tokens[b].buffer);
 				if (token.modif.length) {
 					for (i in token.modif) {
-						var modif = token.modif[i],
+						var modif = token.modif[i].trim(),
 							params = [],
 							check = token.modif[i].match(/(\w+)\(([\s\S]+)\)/);
 
 						if (check) {
 							modif  = check[1];
-							params = check[2].split(/\s*,\s*/);
+							params = explodeFilterArgs(data, check[2]);
 						}
 						params.unshift(repl);
 						modif = Ashe.modifiers[modif] || window[modif];
@@ -75,6 +75,9 @@
 								for (k in loopData) {
 									if (loopData.hasOwnProperty(k)) {
 										var tmpObj = {};
+										for (var l in data) {
+											tmpObj[l] = data[l];
+										}
 										if (key) tmpObj[key] = k;
 										tmpObj[elem] = loopData[k];
 										subStr += process(block[1], tmpObj);
@@ -88,6 +91,7 @@
 							block = token.buffer.match(/\{%\s*else\s*%\}([\s\S]*?)\{%/i);
 							return block ? process(block[1], loopData) : '';
 						}
+						break;
 
 					case 'set':
 						var t = token.expr,
@@ -194,6 +198,11 @@
 	 * Resolve variables from the data scope.
 	 */
 	evl = function(data, buffer) {
+		if ('\'"'.indexOf(buffer.substr(0, 1)) !== -1 &&
+			buffer.substr(-1) === buffer.substr(0, 1)) {
+			return buffer.substr(1, buffer.length - 2);
+		}
+
 		var parts = ~buffer.indexOf('.') ? buffer.split('.') : [buffer],
 			i, l = parts.length,
 			ret = data;
@@ -232,6 +241,54 @@
 		return str.substr(0, start) + replace + str.substr(end);
 	},
 
+	getFilterEndPos = function(str, start, chr) {
+		var pos = str.substr(start).indexOf(chr);
+		if (pos === -1) {
+			console.error('A string is malformed');
+			return -1;
+		}
+
+		if (str[start + pos - 1] === '\\') {
+			return getFilterEndPos(str, start + pos, chr);
+		}
+
+		return start + pos;
+	},
+
+	explodeFilterArgs = function (data, str) {
+		str = str.trim();
+
+		if (str ===  '') {
+			return [];
+		}
+
+		var delim = null;
+		var arg = null;
+		var end = 0;
+
+		if ('\'"'.indexOf(str[0]) !== -1) {
+			delim = str[0];
+			end = getFilterEndPos(str, 1, delim);
+			arg = str.substr(1, end - 1);
+			end = str.indexOf(',');
+
+			if (end === -1) {
+				end = str.length + 1;
+			}
+
+		} else {
+			end = str.indexOf(',');
+			if (end === -1) {
+				end = str.length + 1;
+			}
+
+			arg = str.substr(0, end - 1).trim();
+			arg = evl(data, arg);
+		}
+
+		return [arg].concat(explodeFilterArgs(data, str.substr(end + 1)));
+	},
+
 	/**
 	 * Turn on debug messages about undefined vars and problems of parsing.
 	 */
@@ -255,19 +312,18 @@
 	/**
 	 * Add new modifiers.
 	 */
-    __addModifiers = function(obj) {
-		for (var i in obj) { 
+	__addModifiers = function(obj) {
+		for (var i in obj) {
 			if (obj.hasOwnProperty(i)) __modifiers[i] = obj[i];
 		}
 	};
 
-	/**
-	 * Export to global.
- 	 */
-    window.Ashe = {
+	var Ashe = {
 		debug: __debug,
 		parse: __parse,
 		modifiers: __modifiers,
-		addModifiers: __addModifiers
+		addModifiers: __addModifiers,
 	};
-})();
+
+	module.exports = Ashe;
+});

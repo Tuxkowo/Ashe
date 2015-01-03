@@ -1,8 +1,10 @@
 /**
  * List of Ashe modifiers.
  */
-var Ashe = Ashe || {};
-Ashe.addModifiers({
+define(function (require, exports, module) {
+	var Ashe = require('./ashe');
+
+	Ashe.addModifiers({
 	/**
 	 * Convert value to uppercase.
 	 */
@@ -85,7 +87,7 @@ Ashe.addModifiers({
 	 * @example {{ '-'|repeat(3) }}
 	 */
 	repeat: function(str, count) {
-		return new Array((parseInt(count) || 1) + 1).join(str);
+		return new Array((parseInt(count, 10) || 1) + 1).join(str);
 	},
 
 	/**
@@ -124,4 +126,5 @@ Ashe.addModifiers({
 	urlEncode: function(str, full) {
 		return !full ? encodeURI(str) : encodeURIComponent(str);
 	}
+});
 });
